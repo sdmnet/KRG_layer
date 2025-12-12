@@ -3,153 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>KRG GeoJSON Viewer - Leaflet + Highcharts 3D</title>
+  <title>KRG GeoJSON Viewer - Enhanced</title>
 
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
-  <!-- Highcharts 3D -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/highcharts-3d.js"></script>
 
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-    #app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-    #map { flex: 2; min-width: 50%; }
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    #app{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
+    #map{flex:2;min-width:50%}
 
-    #side-panel {
-      flex: 1;
-      max-width: 560px;
-      border-left: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      background: #f8f9fb;
+    #side-panel{
+      flex:1;
+      max-width:560px;
+      border-left:1px solid #ddd;
+      display:flex;
+      flex-direction:column;
+      background:#f8f9fb;
+      position:relative;
+      transition:width .3s ease,max-width .3s ease,flex-basis .3s ease;
+      overflow:visible; /* مهم حتى الزر يبقى ظاهر */
     }
 
-    #panel-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid #ddd;
-      background: #fff;
-    }
-    #panel-header h2 { margin: 0; font-size: 1.1rem; }
-    #panel-header small { color: #666; }
-
-    #panel-content { padding: 10px 16px 16px; overflow-y: auto; flex: 1; }
-    .section-title { font-size: 0.95rem; font-weight: 800; margin: 10px 0 6px; color: #333; }
-
-    #info-text {
-      font-size: 0.85rem; color: #555; background: #fff; padding: 10px;
-      border-radius: 10px; box-shadow: 0 0 0 1px #e1e4ea; margin-bottom: 10px;
-      line-height: 1.6;
+    /* ✅ تحسين: عند الطي البانل لا يأخذ مساحة داخل flex والخريطة تتمدد */
+    #side-panel.collapsed{
+      width:0 !important;
+      max-width:0 !important;
+      flex:0 0 0 !important;
+      border-left:none;
+      padding:0;
+      opacity:1;             /* خلّي الزر واضح */
+      pointer-events:auto;   /* خلّي زر الطي يعمل */
     }
 
-    .box {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 0 0 1px #e1e4ea;
-      padding: 10px;
-      margin-bottom: 10px;
+    /* إخفاء محتوى البانل عند الطي مع إبقاء زر الطي */
+    #side-panel.collapsed #panel-header,
+    #side-panel.collapsed #panel-content{
+      display:none;
     }
 
-    #attributes-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-      overflow: hidden;
+    #toggle-panel{
+      position:absolute;
+      left:-40px;
+      top:50%;
+      transform:translateY(-50%);
+      background:#fff;
+      border:1px solid #ddd;
+      border-right:none;
+      border-radius:10px 0 0 10px;
+      padding:12px 8px;
+      cursor:pointer;
+      box-shadow:-2px 0 8px rgba(0,0,0,.1);
+      z-index:1000;
     }
-    #attributes-table th, #attributes-table td {
-      padding: 4px 8px;
-      border-bottom: 1px solid #eee;
-      vertical-align: top;
-    }
-    #attributes-table th { background: #f1f3f8; text-align: left; width: 35%; }
-    #attributes-table tr:last-child td { border-bottom: none; }
+    #toggle-panel:hover{background:#f2f4fb}
 
-    /* Fields UI */
-    #field-search, #topn-input, #mapfield-select {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #e1e4ea;
-      border-radius: 10px;
-      font-size: 0.92rem;
-      outline: none;
-      background: #fff;
+    #toggle-icon{display:block;width:20px;height:20px;transition:transform .3s ease}
+    #side-panel.collapsed #toggle-icon{transform:rotate(180deg)}
+
+    #panel-header{padding:12px 16px;border-bottom:1px solid #ddd;background:#fff}
+    #panel-header h2{margin:0;font-size:1.1rem}
+    #panel-header small{color:#666}
+    #panel-content{padding:10px 16px 16px;overflow-y:auto;flex:1}
+
+    .section-title{font-size:.95rem;font-weight:800;margin:10px 0 6px;color:#333}
+    #info-text{font-size:.85rem;color:#555;background:#fff;padding:10px;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;margin-bottom:10px;line-height:1.6}
+    .box{background:#fff;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;padding:10px;margin-bottom:10px}
+    #attributes-table{width:100%;border-collapse:collapse;font-size:.85rem;overflow:hidden}
+    #attributes-table th,#attributes-table td{padding:4px 8px;border-bottom:1px solid #eee;vertical-align:top}
+    #attributes-table th{background:#f1f3f8;text-align:left;width:35%}
+    #attributes-table tr:last-child td{border-bottom:none}
+
+    #field-search,#topn-input,#mapfield-select{
+      width:100%;padding:8px 10px;border:1px solid #e1e4ea;border-radius:10px;font-size:.92rem;outline:none;background:#fff
+    }
+    #fields-list{margin-top:10px;max-height:220px;overflow:auto;border:1px solid #e1e4ea;border-radius:10px;padding:8px}
+    .field-item{display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px}
+    .field-item:hover{background:#f6f8ff}
+    .field-item label{cursor:pointer;font-size:.9rem}
+
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .hint{font-size:.78rem;color:#666;margin-top:6px;line-height:1.4}
+    .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    button{border:1px solid #d7dbe6;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:.9rem}
+    button:hover{background:#f2f4fb}
+
+    #charts-area .chart-box{background:#fff;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;padding:10px;margin-top:10px}
+    .chart-title{font-size:.92rem;font-weight:800;margin:0 0 8px;color:#222}
+    .chart-hint{font-size:.8rem;color:#666;margin:0 0 8px}
+    .chart-div{height:340px}
+
+    .leaflet-control.legend{
+      background:rgba(255,255,255,.95);
+      padding:10px;border-radius:12px;
+      box-shadow:0 2px 14px rgba(0,0,0,.12);
+      border:1px solid #e6e9f2;max-width:280px
+    }
+    .legend .legend-title{font-weight:800;font-size:.85rem;margin-bottom:6px;color:#222}
+    .legend .legend-sub{font-size:.75rem;color:#666;margin-bottom:6px;line-height:1.3}
+    .legend .row{display:flex;gap:8px;align-items:center;margin:4px 0}
+    .legend .swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.15);flex:none}
+    .legend .label{font-size:.78rem;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    .polygon-label{
+      background:rgba(255,255,255,.85);
+      border:1px solid #1f78b4;
+      border-radius:6px;
+      padding:2px 6px;
+      font-size:11px;font-weight:600;
+      color:#1f78b4;
+      white-space:nowrap;
+      pointer-events:none;
+      box-shadow:0 1px 4px rgba(0,0,0,.15)
     }
 
-    #fields-list {
-      margin-top: 10px;
-      max-height: 220px;
-      overflow: auto;
-      border: 1px solid #e1e4ea;
-      border-radius: 10px;
-      padding: 8px;
-    }
-    .field-item {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 6px 6px;
-      border-radius: 8px;
-    }
-    .field-item:hover { background: #f6f8ff; }
-    .field-item label { cursor: pointer; font-size: 0.9rem; }
+    @media (max-width:900px){
+      #app{flex-direction:column}
+      #map{height:50vh;flex:none;min-width:0}
+      #side-panel{max-width:100%;height:50vh;border-left:none;border-top:1px solid #ddd}
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .hint { font-size: 0.78rem; color: #666; margin-top: 6px; line-height: 1.4; }
+      /* ✅ تحسين للموبايل: عند الطي يصبح البانل ارتفاعه 0 والخريطة 100vh */
+      #app.panel-collapsed #map{height:100vh !important}
+      #app.panel-collapsed #side-panel{height:0 !important;border-top:none}
 
-    .btn-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    button {
-      border: 1px solid #d7dbe6;
-      background: #fff;
-      padding: 8px 10px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    button:hover { background: #f2f4fb; }
-
-    /* Charts */
-    #charts-area .chart-box {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 0 0 1px #e1e4ea;
-      padding: 10px;
-      margin-top: 10px;
-    }
-    .chart-title { font-size: 0.92rem; font-weight: 800; margin: 0 0 8px; color: #222; }
-    .chart-hint { font-size: 0.8rem; color: #666; margin: 0 0 8px; }
-    .chart-div { height: 340px; }
-
-    /* Leaflet legend */
-    .leaflet-control.legend {
-      background: rgba(255,255,255,0.95);
-      padding: 10px 10px;
-      border-radius: 12px;
-      box-shadow: 0 2px 14px rgba(0,0,0,0.12);
-      border: 1px solid #e6e9f2;
-      max-width: 280px;
-    }
-    .legend .legend-title { font-weight: 800; font-size: 0.85rem; margin-bottom: 6px; color: #222; }
-    .legend .legend-sub { font-size: 0.75rem; color: #666; margin-bottom: 6px; line-height: 1.3; }
-    .legend .row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
-    .legend .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.15); flex: none; }
-    .legend .label { font-size: 0.78rem; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    @media (max-width: 900px) {
-      #app { flex-direction: column; }
-      #map { height: 50vh; flex: none; }
-      #side-panel { max-width: 100%; height: 50vh; border-left: none; border-top: 1px solid #ddd; }
-      .grid-2 { grid-template-columns: 1fr; }
+      #toggle-panel{
+        left:50%;
+        top:-40px;
+        transform:translateX(-50%);
+        border-radius:10px 10px 0 0;
+        border-right:1px solid #ddd;
+        border-bottom:none
+      }
+      #toggle-icon{transform:rotate(90deg)}
+      #side-panel.collapsed #toggle-icon{transform:rotate(-90deg)}
+      .grid-2{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -159,10 +152,15 @@
   <div id="map"></div>
 
   <div id="side-panel">
+    <button id="toggle-panel" title="طي/فتح البانل">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
     <div id="panel-header">
-      <h2>
-        KRG GeoJSON Viewer
-        <span style="font-size:.75rem; color:#2457c6; background:#e6f0ff; padding:2px 8px; border-radius:999px;">
+      <h2>KRG GeoJSON Viewer
+        <span style="font-size:.75rem;color:#2457c6;background:#e6f0ff;padding:2px 8px;border-radius:999px">
           Leaflet + 3D Pie
         </span>
       </h2>
@@ -171,10 +169,10 @@
 
     <div id="panel-content">
       <div id="info-text">
-        1) اختر حقلاً/حقولاً من القائمة. <br/>
-        2) حدّد <b>Top N</b> لعدد الشرائح (مع <b>Other</b> تلقائياً إذا القيم كثيرة). <br/>
-        3) اختر من “حقل تلوين الخريطة” أي حقل من الحقول المحددة، واضغط تطبيق. <br/>
-        4) انقر مضلع ➜ يظهر Popup بقيم الحقول المحددة، والجدول يعرض كل الصفات.
+        1) اختر حقلاً/حقولاً من القائمة.<br/>
+        2) حدّد <b>Top N</b> لعدد الشرائح.<br/>
+        3) اختر حقل تلوين الخريطة واضغط تطبيق.<br/>
+        4) انقر مضلع ➜ Popup + جدول الصفات.
       </div>
 
       <div class="box">
@@ -182,22 +180,20 @@
         <input id="field-search" type="text" placeholder="ابحث عن اسم الحقل..."/>
         <div id="fields-list"></div>
 
-        <div class="section-title" style="margin-top:12px;">تحكم العرض</div>
+        <div class="section-title" style="margin-top:12px">تحكم العرض</div>
         <div class="grid-2">
           <div>
-            <input id="topn-input" type="number" min="3" max="30" step="1" value="10" />
-            <div class="hint">Top N: عدد القيم/الفئات المعروضة في مخطط الـPie (الأكثر تكراراً).</div>
+            <input id="topn-input" type="number" min="3" max="30" step="1" value="10"/>
+            <div class="hint">Top N: عدد القيم المعروضة في Pie.</div>
           </div>
           <div>
-            <select id="mapfield-select">
-              <option value="">— اختر حقل لتلوين الخريطة —</option>
-            </select>
-            <div class="hint">يظهر هنا فقط الحقول التي قمت بتحديدها (Checkbox).</div>
+            <select id="mapfield-select"><option value="">— اختر حقل لتلوين الخريطة —</option></select>
+            <div class="hint">الحقول المحددة فقط.</div>
           </div>
         </div>
 
         <div class="btn-row">
-          <button id="btn-apply">تطبيق (تحديث المخططات + الخريطة)</button>
+          <button id="btn-apply">تطبيق</button>
           <button id="btn-clear">إلغاء التحديد</button>
           <button id="btn-zoom">زوّم على الطبقة</button>
         </div>
@@ -206,14 +202,12 @@
       <div class="box">
         <div class="section-title">Attributes (المضلع المحدد)</div>
         <table id="attributes-table">
-          <tbody id="attributes-body">
-            <tr><td colspan="2">لم يتم اختيار أي مضلع بعد.</td></tr>
-          </tbody>
+          <tbody id="attributes-body"><tr><td colspan="2">لم يتم اختيار أي مضلع.</td></tr></tbody>
         </table>
       </div>
 
       <div id="charts-area">
-        <div class="section-title">3D Pie — توزيع القيم على جميع المضلعات</div>
+        <div class="section-title">3D Pie — توزيع القيم</div>
         <div id="charts-container"></div>
       </div>
     </div>
@@ -221,259 +215,183 @@
 </div>
 
 <script>
-  // ===============================
-  // 0) CONFIG
-  // ===============================
-  var geojsonUrl = "https://raw.githubusercontent.com/sdmnet/KRG_layer/refs/heads/main/duhok_section.geojson";
+  var geojsonUrl="https://raw.githubusercontent.com/sdmnet/KRG_layer/refs/heads/main/duhok_section.geojson";
 
-  // ===============================
-  // 1) MAP
-  // ===============================
-  var map = L.map("map").setView([36.5, 44.0], 7);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
+  var map=L.map("map").setView([36.5,44],7);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19,attribution:"&copy; OpenStreetMap"
   }).addTo(map);
 
-  // Legend control
-  var legendControl = L.control({ position: "bottomright" });
-  legendControl.onAdd = function() {
-    var div = L.DomUtil.create("div", "legend leaflet-control");
-    L.DomEvent.disableClickPropagation(div);
-    this._div = div;
-    this.update(null, null);
-    return div;
+  var legendControl=L.control({position:"bottomright"});
+  legendControl.onAdd=function(){
+    var d=L.DomUtil.create("div","legend leaflet-control");
+    L.DomEvent.disableClickPropagation(d);
+    this._div=d;
+    this.update(null,null);
+    return d;
   };
-  legendControl.update = function(items, title) {
-    if (!this._div) return;
-    if (!items || !items.length) {
-      this._div.innerHTML =
-        '<div class="legend-title">Legend</div>' +
-        '<div class="legend-sub">اختر حقلاً لتلوين الخريطة.</div>';
+  legendControl.update=function(items,title){
+    if(!this._div)return;
+    if(!items||!items.length){
+      this._div.innerHTML='<div class="legend-title">Legend</div><div class="legend-sub">اختر حقلاً لتلوين الخريطة.</div>';
       return;
     }
-
-    var html = '<div class="legend-title">Legend — ' + escapeHTML(title || "") + '</div>';
-    html += '<div class="legend-sub">الألوان تمثل فئات/مدى قيم الحقل على المضلعات.</div>';
-
+    var h='<div class="legend-title">Legend — '+escapeHTML(title||"")+'</div><div class="legend-sub">الألوان تمثل فئات الحقل.</div>';
     items.forEach(function(it){
-      html += '<div class="row">' +
-              '<span class="swatch" style="background:' + it.color + ';"></span>' +
-              '<span class="label" title="' + escapeHTML(it.label) + '">' + escapeHTML(it.label) + '</span>' +
-              '</div>';
+      h+='<div class="row"><span class="swatch" style="background:'+it.color+';"></span><span class="label" title="'+escapeHTML(it.label)+'">'+escapeHTML(it.label)+'</span></div>';
     });
-
-    this._div.innerHTML = html;
+    this._div.innerHTML=h;
   };
   legendControl.addTo(map);
 
-  // ===============================
-  // 2) STATE
-  // ===============================
-  var geojsonLayer = null;
-  var selectedLayer = null;
-  var geojsonData = null;
+  var geojsonLayer=null,selectedLayer=null,geojsonData=null,labelsLayer=null;
+  var allFields=[],selectedFields=[];
+  var topN=10,binsCount=5,activeMapField="";
+  var valueToColor=new Map(),numericBins=null;
 
-  var allFields = [];
-  var selectedFields = [];
+  fetch(geojsonUrl,{cache:"no-store"})
+    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(data){
+      geojsonData=data;
 
-  var topN = 10;            // Top N categories for pie
-  var binsCount = 5;        // numeric bins (fixed 5)
-  var activeMapField = "";  // chosen field for map color
-
-  var valueToColor = new Map();
-  var numericBins = null;   // { edges:[], labels:[] } for activeMapField only
-
-  // ===============================
-  // 3) LOAD GEOJSON
-  // ===============================
-  fetch(geojsonUrl, { cache: "no-store" })
-    .then(function (response) {
-      if (!response.ok) throw new Error("HTTP " + response.status + " - " + response.statusText);
-      return response.json();
-    })
-    .then(function (data) {
-      geojsonData = data;
-
-      // collect fields
-      var set = new Set();
-      (data.features || []).forEach(function(f){
-        var p = f.properties || {};
-        Object.keys(p).forEach(function(k){ set.add(k); });
+      var s=new Set();
+      (data.features||[]).forEach(function(f){
+        var p=f.properties||{};
+        Object.keys(p).forEach(function(k){ s.add(k); });
       });
-      allFields = Array.from(set).sort(function(a,b){ return a.localeCompare(b); });
+      allFields=Array.from(s).sort(function(a,b){ return a.localeCompare(b); });
 
       renderFieldsList(allFields);
 
-      geojsonLayer = L.geoJSON(data, {
-        style: baseStyle,
-        onEachFeature: onEachFeature,
-      }).addTo(map);
+      geojsonLayer=L.geoJSON(data,{style:baseStyle,onEachFeature:onEachFeature}).addTo(map);
 
-      try { map.fitBounds(geojsonLayer.getBounds()); } catch(e){}
+      labelsLayer=L.layerGroup().addTo(map);
+      addPolygonLabels();
 
-      // init charts placeholder
+      try{ map.fitBounds(geojsonLayer.getBounds()); }catch(e){}
+
       setChartsPlaceholder();
-
     })
-    .catch(function (error) {
-      console.error("Error loading GeoJSON:", error);
-      document.getElementById("attributes-body").innerHTML =
-        "<tr><td colspan='2' style='color:red;'>Error loading GeoJSON: " + escapeHTML(error.message) + "</td></tr>";
-      document.getElementById("fields-list").innerHTML =
-        "<div style='color:red; padding:6px;'>فشل تحميل الملف. تحقق من الرابط.</div>";
+    .catch(function(error){
+      console.error("Error:",error);
+      document.getElementById("attributes-body").innerHTML=
+        "<tr><td colspan='2' style='color:red'>Error: "+escapeHTML(error.message)+"</td></tr>";
+      document.getElementById("fields-list").innerHTML=
+        "<div style='color:red;padding:6px'>فشل تحميل الملف.</div>";
       setChartsPlaceholder("فشل تحميل البيانات.");
     });
 
-  // ===============================
-  // 4) STYLES
-  // ===============================
   function baseStyle(feature){
-    if (!activeMapField) {
-      return { color:"#1f78b4", weight:1.5, fillColor:"#a6cee3", fillOpacity:0.55 };
+    if(!activeMapField){
+      return {color:"#1f78b4",weight:1.5,fillColor:"#a6cee3",fillOpacity:.55};
     }
-
-    var v = (feature.properties || {})[activeMapField];
-    var label = classifyValueForMap(v);
-
-    var c = valueToColor.get(label);
-    if (!c) {
-      // values خارج Top N -> Other إن وجد
-      if (valueToColor.has("Other")) c = valueToColor.get("Other");
-      else c = "#a6cee3";
+    var v=(feature.properties||{})[activeMapField];
+    var label=classifyValueForMap(v);
+    var c=valueToColor.get(label);
+    if(!c){
+      if(valueToColor.has("Other")) c=valueToColor.get("Other");
+      else c="#a6cee3";
     }
-
-    return { color:"#1f78b4", weight:1.2, fillColor:c, fillOpacity:0.65 };
+    return {color:"#1f78b4",weight:1.2,fillColor:c,fillOpacity:.65};
   }
 
-  function highlightStyle(){
-    return { color:"#ff7800", weight:3, fillColor:"#ffeda0", fillOpacity:0.85 };
-  }
+  function highlightStyle(){ return {color:"#ff7800",weight:3,fillColor:"#ffeda0",fillOpacity:.85}; }
 
-  // ===============================
-  // 5) FEATURE EVENTS
-  // ===============================
-  function onEachFeature(feature, layer) {
+  function onEachFeature(feature,layer){
     layer.on({
-      click: function (e) {
+      click:function(e){
         highlightFeature(layer);
-
-        var props = feature.properties || {};
+        var props=feature.properties||{};
         updateAttributesTable(props);
-
-        // Popup with selected fields only
-        openSelectedFieldsPopup(layer, props, e.latlng);
+        openSelectedFieldsPopup(layer,props,e.latlng);
       },
-      mouseover: function () {
-        if (layer !== selectedLayer) layer.setStyle({ weight: 2.4, fillOpacity: 0.8 });
+      mouseover:function(){
+        if(layer!==selectedLayer) layer.setStyle({weight:2.4,fillOpacity:.8});
       },
-      mouseout: function () {
-        if (layer !== selectedLayer && geojsonLayer) geojsonLayer.resetStyle(layer);
-      },
+      mouseout:function(){
+        if(layer!==selectedLayer && geojsonLayer) geojsonLayer.resetStyle(layer);
+      }
     });
   }
 
-  function highlightFeature(layer) {
-    if (selectedLayer && geojsonLayer) geojsonLayer.resetStyle(selectedLayer);
-    selectedLayer = layer;
+  function highlightFeature(layer){
+    if(selectedLayer && geojsonLayer) geojsonLayer.resetStyle(selectedLayer);
+    selectedLayer=layer;
     layer.setStyle(highlightStyle());
-    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
+    if(!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
   }
 
-  function openSelectedFieldsPopup(layer, props, latlng) {
-    var keys = selectedFields.slice(0, 20); // safety cap
-    var html = '<div style="min-width:220px; font-size:13px; line-height:1.5;">';
-    html += '<div style="font-weight:800; margin-bottom:6px;">Selected fields</div>';
+  function openSelectedFieldsPopup(layer,props,latlng){
+    var keys=selectedFields.slice(0,20);
+    var h='<div style="min-width:220px;font-size:13px;line-height:1.5"><div style="font-weight:800;margin-bottom:6px">Selected fields</div>';
 
-    if (!keys.length) {
-      html += '<div style="color:#666;">لا توجد حقول محددة.</div>';
-    } else {
-      html += '<table style="width:100%; border-collapse:collapse;">';
+    if(!keys.length){
+      h+='<div style="color:#666">لا توجد حقول محددة.</div>';
+    }else{
+      h+='<table style="width:100%;border-collapse:collapse">';
       keys.forEach(function(k){
-        var v = props ? props[k] : "";
-        html += '<tr>' +
-          '<td style="padding:3px 6px; border-bottom:1px solid #eee; font-weight:700;">' + escapeHTML(k) + '</td>' +
-          '<td style="padding:3px 6px; border-bottom:1px solid #eee;">' + escapeHTML(v == null ? "" : String(v)) + '</td>' +
-          '</tr>';
+        var v=props?props[k]:"";
+        h+='<tr><td style="padding:3px 6px;border-bottom:1px solid #eee;font-weight:700">'+escapeHTML(k)+'</td>'+
+           '<td style="padding:3px 6px;border-bottom:1px solid #eee">'+escapeHTML(v==null?"":String(v))+'</td></tr>';
       });
-      html += '</table>';
+      h+='</table>';
     }
 
-    if (activeMapField) {
-      var av = props ? props[activeMapField] : "";
-      html += '<div style="margin-top:8px; color:#444;"><b>Map field:</b> ' + escapeHTML(activeMapField) +
-              ' = ' + escapeHTML(av == null ? "" : String(av)) + '</div>';
+    if(activeMapField){
+      var av=props?props[activeMapField]:"";
+      h+='<div style="margin-top:8px;color:#444"><b>Map field:</b> '+escapeHTML(activeMapField)+' = '+escapeHTML(av==null?"":String(av))+'</div>';
     }
 
-    html += '</div>';
+    h+='</div>';
+    layer.bindPopup(h,{maxWidth:340}).openPopup(latlng);
 
-    layer.bindPopup(html, { maxWidth: 340 }).openPopup(latlng);
-
-    // zoom nicely
-    try { map.fitBounds(layer.getBounds(), { padding: [18, 18] }); } catch(e){}
+    try{ map.fitBounds(layer.getBounds(),{padding:[18,18]}); }catch(e){}
   }
 
-  // ===============================
-  // 6) ATTRIBUTES TABLE (full)
-  // ===============================
-  function updateAttributesTable(properties) {
-    var tbody = document.getElementById("attributes-body");
-    tbody.innerHTML = "";
-
-    var keys = Object.keys(properties || {});
-    if (!keys.length) {
-      tbody.innerHTML = "<tr><td colspan='2'>لا توجد بيانات وصفية لهذا المضلع.</td></tr>";
+  function updateAttributesTable(properties){
+    var tbody=document.getElementById("attributes-body");
+    tbody.innerHTML="";
+    var keys=Object.keys(properties||{});
+    if(!keys.length){
+      tbody.innerHTML="<tr><td colspan='2'>لا توجد بيانات.</td></tr>";
       return;
     }
-
-    keys.forEach(function (key) {
-      var value = properties[key];
-
-      var row = document.createElement("tr");
-      var keyCell = document.createElement("th"); keyCell.textContent = key;
-      var valueCell = document.createElement("td");
-      valueCell.textContent = (value === null || value === undefined) ? "" : String(value);
-
+    keys.forEach(function(key){
+      var value=properties[key];
+      var row=document.createElement("tr");
+      var keyCell=document.createElement("th");
+      keyCell.textContent=key;
+      var valueCell=document.createElement("td");
+      valueCell.textContent=(value===null||value===undefined)?"":String(value);
       row.appendChild(keyCell);
       row.appendChild(valueCell);
       tbody.appendChild(row);
     });
   }
 
-  // ===============================
-  // 7) FIELDS UI
-  // ===============================
   function renderFieldsList(fields){
-    var list = document.getElementById("fields-list");
-    list.innerHTML = "";
-
-    if (!fields.length) {
-      list.innerHTML = "<div style='color:#666; padding:6px;'>لا توجد حقول.</div>";
+    var list=document.getElementById("fields-list");
+    list.innerHTML="";
+    if(!fields.length){
+      list.innerHTML="<div style='color:#666;padding:6px'>لا توجد حقول.</div>";
       return;
     }
-
     fields.forEach(function(field){
-      var row = document.createElement("div");
-      row.className = "field-item";
+      var row=document.createElement("div");
+      row.className="field-item";
 
-      var cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = field;
-      cb.id = "fld_" + field;
+      var cb=document.createElement("input");
+      cb.type="checkbox"; cb.value=field; cb.id="fld_"+field;
+      if(selectedFields.includes(field)) cb.checked=true;
 
-      // preserve checked state
-      if (selectedFields.includes(field)) cb.checked = true;
-
-      cb.addEventListener("change", function(){
-        selectedFields = getSelectedFields();
+      cb.addEventListener("change",function(){
+        selectedFields=getSelectedFields();
         syncMapFieldSelect();
-        // (لا نطبق تلقائياً كل شيء هنا حتى لا يصبح ثقيل)
       });
 
-      var label = document.createElement("label");
-      label.setAttribute("for", cb.id);
-      label.textContent = field;
+      var label=document.createElement("label");
+      label.setAttribute("for",cb.id);
+      label.textContent=field;
 
       row.appendChild(cb);
       row.appendChild(label);
@@ -482,344 +400,297 @@
   }
 
   function getSelectedFields(){
-    var list = document.getElementById("fields-list");
-    var cbs = list.querySelectorAll("input[type='checkbox']");
-    var arr = [];
-    cbs.forEach(function(cb){ if (cb.checked) arr.push(cb.value); });
+    var list=document.getElementById("fields-list");
+    var cbs=list.querySelectorAll("input[type='checkbox']");
+    var arr=[];
+    cbs.forEach(function(cb){ if(cb.checked) arr.push(cb.value); });
     return arr;
   }
 
-  // Search
-  document.getElementById("field-search").addEventListener("input", function(e){
-    var q = (e.target.value || "").toLowerCase().trim();
-    var filtered = allFields.filter(function(f){ return f.toLowerCase().includes(q); });
+  document.getElementById("field-search").addEventListener("input",function(e){
+    var q=(e.target.value||"").toLowerCase().trim();
+    var filtered=allFields.filter(function(f){ return f.toLowerCase().includes(q); });
     renderFieldsList(filtered);
   });
 
-  // TopN
-  document.getElementById("topn-input").addEventListener("change", function(e){
-    var v = parseInt(e.target.value, 10);
-    if (!isFinite(v) || v < 3) v = 3;
-    if (v > 30) v = 30;
-    topN = v;
+  document.getElementById("topn-input").addEventListener("change",function(e){
+    var v=parseInt(e.target.value,10);
+    if(!isFinite(v)||v<3) v=3;
+    if(v>30) v=30;
+    topN=v;
   });
 
-  // Apply button
-  document.getElementById("btn-apply").addEventListener("click", function(){
-    selectedFields = getSelectedFields();
+  document.getElementById("btn-apply").addEventListener("click",function(){
+    selectedFields=getSelectedFields();
 
-    // choose active field from select if possible, else fallback
-    var sel = document.getElementById("mapfield-select").value;
-    if (sel && selectedFields.includes(sel)) activeMapField = sel;
-    else activeMapField = selectedFields[0] || "";
+    var sel=document.getElementById("mapfield-select").value;
+    if(sel && selectedFields.includes(sel)) activeMapField=sel;
+    else activeMapField=selectedFields[0]||"";
 
-    // update UI select
     syncMapFieldSelect(true);
-
-    // build charts
     buildChartsForSelectedFields(selectedFields);
-
-    // recolor map + legend
     recolorMapByActiveField();
 
-    // keep selected highlight
-    if (selectedLayer) selectedLayer.setStyle(highlightStyle());
+    if(selectedLayer) selectedLayer.setStyle(highlightStyle());
   });
 
-  // Clear
-  document.getElementById("btn-clear").addEventListener("click", function(){
-    selectedFields = [];
-    activeMapField = "";
+  document.getElementById("btn-clear").addEventListener("click",function(){
+    selectedFields=[];
+    activeMapField="";
     valueToColor.clear();
-    numericBins = null;
+    numericBins=null;
 
-    // uncheck all
-    var list = document.getElementById("fields-list");
-    list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ cb.checked = false; });
+    var list=document.getElementById("fields-list");
+    list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ cb.checked=false; });
 
     syncMapFieldSelect(true);
     setChartsPlaceholder();
 
-    if (geojsonLayer) geojsonLayer.setStyle(baseStyle);
-    legendControl.update(null, null);
+    if(geojsonLayer) geojsonLayer.setStyle(baseStyle);
+    legendControl.update(null,null);
 
-    if (selectedLayer) selectedLayer.setStyle(highlightStyle());
+    if(selectedLayer) selectedLayer.setStyle(highlightStyle());
   });
 
-  // Zoom
-  document.getElementById("btn-zoom").addEventListener("click", function(){
-    if (geojsonLayer) { try { map.fitBounds(geojsonLayer.getBounds()); } catch(e){} }
+  document.getElementById("btn-zoom").addEventListener("click",function(){
+    if(geojsonLayer){ try{ map.fitBounds(geojsonLayer.getBounds()); }catch(e){} }
+  });
+
+  /* ✅ تحسين: زر طي/فتح البانل + تمدد الخريطة بالكامل + invalidateSize */
+  document.getElementById("toggle-panel").addEventListener("click",function(){
+    var panel=document.getElementById("side-panel");
+    var app=document.getElementById("app");
+
+    panel.classList.toggle("collapsed");
+    app.classList.toggle("panel-collapsed");
+
+    setTimeout(function(){ map.invalidateSize(); }, 260);
   });
 
   function syncMapFieldSelect(keepSelectionIfPossible){
-    var select = document.getElementById("mapfield-select");
-    var current = keepSelectionIfPossible ? select.value : "";
+    var select=document.getElementById("mapfield-select");
+    var current=keepSelectionIfPossible?select.value:"";
 
-    // rebuild options
-    select.innerHTML = '<option value="">— اختر حقل لتلوين الخريطة —</option>';
+    select.innerHTML='<option value="">— اختر حقل لتلوين الخريطة —</option>';
     selectedFields.forEach(function(f){
-      var opt = document.createElement("option");
-      opt.value = f;
-      opt.textContent = f;
+      var opt=document.createElement("option");
+      opt.value=f; opt.textContent=f;
       select.appendChild(opt);
     });
 
-    // restore selection if still available
-    if (current && selectedFields.includes(current)) {
-      select.value = current;
-    } else if (activeMapField && selectedFields.includes(activeMapField)) {
-      select.value = activeMapField;
-    } else {
-      select.value = "";
-    }
+    if(current && selectedFields.includes(current)) select.value=current;
+    else if(activeMapField && selectedFields.includes(activeMapField)) select.value=activeMapField;
+    else select.value="";
   }
 
-  // ===============================
-  // 8) CHARTS (3D PIE)
-  // ===============================
   function setChartsPlaceholder(msg){
-    var container = document.getElementById("charts-container");
-    container.innerHTML =
-      "<div style='color:#666; padding:6px;'>" +
-      escapeHTML(msg || "اختر حقلاً أو أكثر ثم اضغط تطبيق لعرض المخططات.") +
-      "</div>";
+    var container=document.getElementById("charts-container");
+    container.innerHTML="<div style='color:#666;padding:6px'>"+escapeHTML(msg||"اختر حقلاً ثم اضغط تطبيق.")+"</div>";
   }
 
   function buildChartsForSelectedFields(fields){
-    var container = document.getElementById("charts-container");
-    container.innerHTML = "";
+    var container=document.getElementById("charts-container");
+    container.innerHTML="";
+    if(!fields.length){ setChartsPlaceholder(); return; }
 
-    if (!fields.length) {
-      setChartsPlaceholder();
-      return;
-    }
+    fields.forEach(function(field,idx){
+      var dist=computeDistribution(field);
 
-    fields.forEach(function(field, idx){
-      var dist = computeDistribution(field);
+      var box=document.createElement("div");
+      box.className="chart-box";
 
-      var box = document.createElement("div");
-      box.className = "chart-box";
+      var title=document.createElement("div");
+      title.className="chart-title";
+      title.textContent="Field: "+field;
 
-      var title = document.createElement("div");
-      title.className = "chart-title";
-      title.textContent = "Field: " + field;
+      var hint=document.createElement("div");
+      hint.className="chart-hint";
+      hint.textContent=dist.mode==="numeric" ? "حقل رقمي: Bins." : ("حقل فئوي: Top "+topN);
 
-      var hint = document.createElement("div");
-      hint.className = "chart-hint";
-      hint.textContent = dist.mode === "numeric"
-        ? "حقل رقمي: تم تحويله إلى فئات (Bins) لعرضه على Pie."
-        : ("حقل فئوي: Top " + topN + " + Other عند الحاجة.");
-
-      var chartDiv = document.createElement("div");
-      chartDiv.className = "chart-div";
-      chartDiv.id = "chart_" + idx;
+      var chartDiv=document.createElement("div");
+      chartDiv.className="chart-div";
+      chartDiv.id="chart_"+idx;
 
       box.appendChild(title);
       box.appendChild(hint);
       box.appendChild(chartDiv);
       container.appendChild(box);
 
-      render3DPie(chartDiv.id, dist.series, field);
+      render3DPie(chartDiv.id,dist.series,field);
     });
   }
 
-  function render3DPie(divId, seriesData, fieldName){
-    Highcharts.chart(divId, {
-      chart: {
-        type: 'pie',
-        options3d: { enabled: true, alpha: 45, beta: 0 },
-        backgroundColor: 'transparent'
-      },
-      title: { text: null },
-      tooltip: { pointFormat: '<b>{point.y}</b> polygons ({point.percentage:.1f}%)' },
-      plotOptions: {
-        pie: {
-          allowPointSelect: true,
-          cursor: 'pointer',
-          depth: 35,
-          dataLabels: { enabled: true, format: '{point.name}: {point.y}' }
-        }
-      },
-      series: [{ name: fieldName, data: seriesData }],
-      credits: { enabled: false }
+  function render3DPie(divId,seriesData,fieldName){
+    Highcharts.chart(divId,{
+      chart:{type:'pie',options3d:{enabled:true,alpha:45,beta:0},backgroundColor:'transparent'},
+      title:{text:null},
+      tooltip:{pointFormat:'<b>{point.y}</b> polygons ({point.percentage:.1f}%)'},
+      plotOptions:{pie:{allowPointSelect:true,cursor:'pointer',depth:35,dataLabels:{enabled:true,format:'{point.name}: {point.y}'}}},
+      series:[{name:fieldName,data:seriesData}],
+      credits:{enabled:false}
     });
   }
 
-  // ===============================
-  // 9) DISTRIBUTION
-  // ===============================
   function computeDistribution(field){
-    var features = (geojsonData && geojsonData.features) ? geojsonData.features : [];
-    var raw = [];
-
+    var features=(geojsonData&&geojsonData.features)?geojsonData.features:[];
+    var raw=[];
     features.forEach(function(f){
-      var p = f.properties || {};
-      var v = p[field];
-      if (v === null || v === undefined || v === "") return;
+      var p=f.properties||{};
+      var v=p[field];
+      if(v===null||v===undefined||v==="") return;
       raw.push(v);
     });
+    if(!raw.length) return {mode:"categorical",series:[["No data",0]]};
 
-    if (!raw.length) return { mode: "categorical", series: [["No data", 0]] };
-
-    // numeric detection
-    var nums = [];
-    var numericCount = 0;
+    var nums=[],numericCount=0;
     raw.forEach(function(v){
-      if (typeof v === "number") { numericCount++; nums.push(v); return; }
-      var n = Number(v);
-      if (!isNaN(n) && isFinite(n)) { numericCount++; nums.push(n); }
+      if(typeof v==="number"){ numericCount++; nums.push(v); return; }
+      var n=Number(v);
+      if(!isNaN(n)&&isFinite(n)){ numericCount++; nums.push(n); }
     });
 
-    var numericRatio = numericCount / raw.length;
+    var numericRatio=numericCount/raw.length;
 
-    if (numericRatio >= 0.7) {
-      nums = nums.filter(function(x){ return typeof x === "number" && !isNaN(x) && isFinite(x); });
-      nums.sort(function(a,b){ return a-b; });
+    if(numericRatio>=.7){
+      nums=nums.filter(function(x){return typeof x==="number"&&!isNaN(x)&&isFinite(x)}).sort(function(a,b){return a-b});
+      var min=nums[0],max=nums[nums.length-1];
+      if(min===max) return {mode:"numeric",series:[[String(roundNice(min)),nums.length]]};
 
-      var min = nums[0], max = nums[nums.length - 1];
-      if (min === max) return { mode: "numeric", series: [[String(roundNice(min)), nums.length]] };
-
-      var step = (max - min) / binsCount;
-      var edges = [];
-      for (var i=0; i<=binsCount; i++) edges.push(min + step*i);
-
-      var labels = [];
-      var counts = new Array(binsCount).fill(0);
-
-      for (var b=0; b<binsCount; b++){
-        labels.push(formatRange(edges[b], edges[b+1]));
-      }
+      var step=(max-min)/binsCount;
+      var edges=[],labels=[],counts=new Array(binsCount).fill(0);
+      for(var i=0;i<=binsCount;i++) edges.push(min+step*i);
+      for(var b=0;b<binsCount;b++) labels.push(formatRange(edges[b],edges[b+1]));
 
       nums.forEach(function(x){
-        var idx = Math.min(binsCount-1, Math.floor((x - min) / step));
-        if (idx < 0) idx = 0;
+        var idx=Math.min(binsCount-1,Math.floor((x-min)/step));
+        if(idx<0) idx=0;
         counts[idx]++;
       });
 
-      return { mode: "numeric", series: labels.map(function(lbl, i){ return [lbl, counts[i]]; }), edges: edges, labels: labels };
+      return {mode:"numeric",series:labels.map(function(lbl,i){return[lbl,counts[i]]}),edges:edges,labels:labels};
     }
 
-    // categorical
-    var countsMap = new Map();
+    var countsMap=new Map();
     raw.forEach(function(v){
-      var s = String(v).trim();
-      if (!s) return;
-      countsMap.set(s, (countsMap.get(s) || 0) + 1);
+      var s=String(v).trim();
+      if(!s) return;
+      countsMap.set(s,(countsMap.get(s)||0)+1);
     });
 
-    var arr = Array.from(countsMap.entries()).sort(function(a,b){ return b[1]-a[1]; });
-    arr = topNPlusOther(arr, topN);
-
-    return { mode: "categorical", series: arr };
+    var arr=Array.from(countsMap.entries()).sort(function(a,b){return b[1]-a[1]});
+    arr=topNPlusOther(arr,topN);
+    return {mode:"categorical",series:arr};
   }
 
-  function topNPlusOther(entries, N){
-    if (entries.length <= N) return entries;
-    var kept = entries.slice(0, N);
-    var rest = entries.slice(N);
-    var otherSum = rest.reduce(function(acc, e){ return acc + e[1]; }, 0);
-    kept.push(["Other", otherSum]);
+  function topNPlusOther(entries,N){
+    if(entries.length<=N) return entries;
+    var kept=entries.slice(0,N);
+    var rest=entries.slice(N);
+    var otherSum=rest.reduce(function(acc,e){ return acc+e[1]; },0);
+    kept.push(["Other",otherSum]);
     return kept;
   }
 
-  function formatRange(a0, a1){
-    return roundNice(a0) + " – " + roundNice(a1);
-  }
+  function formatRange(a0,a1){ return roundNice(a0)+" – "+roundNice(a1); }
 
   function roundNice(x){
-    if (Math.abs(x) >= 1000) return x.toFixed(0);
-    if (Math.abs(x) >= 100) return x.toFixed(1);
-    if (Math.abs(x) >= 10) return x.toFixed(2);
+    if(Math.abs(x)>=1000) return x.toFixed(0);
+    if(Math.abs(x)>=100)  return x.toFixed(1);
+    if(Math.abs(x)>=10)   return x.toFixed(2);
     return x.toFixed(3);
   }
 
-  // ===============================
-  // 10) MAP RECOLOR + LEGEND
-  // ===============================
   function recolorMapByActiveField(){
-    if (!geojsonLayer) return;
+    if(!geojsonLayer) return;
 
     valueToColor.clear();
-    numericBins = null;
+    numericBins=null;
 
-    if (!activeMapField) {
+    if(!activeMapField){
       geojsonLayer.setStyle(baseStyle);
-      legendControl.update(null, null);
+      legendControl.update(null,null);
       return;
     }
 
-    var dist = computeDistribution(activeMapField);
+    var dist=computeDistribution(activeMapField);
+    var labels=dist.series.map(function(x){ return x[0]; });
 
-    // build palette labels for legend + mapping
-    var labels = dist.series.map(function(x){ return x[0]; });
+    if(!labels.includes("No data")) labels.push("No data");
 
-    // ensure "No data" exists for legend
-    if (!labels.includes("No data")) labels.push("No data");
-
-    labels.forEach(function(lbl, i){
-      if (lbl === "No data") valueToColor.set(lbl, "#cccccc");
-      else valueToColor.set(lbl, hslColor(i, labels.length));
+    labels.forEach(function(lbl,i){
+      if(lbl==="No data") valueToColor.set(lbl,"#cccccc");
+      else valueToColor.set(lbl,hslColor(i,labels.length));
     });
 
-    // numeric bins for classify
-    if (dist.mode === "numeric") {
-      numericBins = { edges: dist.edges || null, labels: dist.labels || null };
+    if(dist.mode==="numeric"){
+      numericBins={edges:dist.edges||null,labels:dist.labels||null};
     }
 
     geojsonLayer.setStyle(baseStyle);
 
-    // update legend items
-    var legendItems = labels.map(function(lbl){
-      return { label: String(lbl), color: valueToColor.get(lbl) || "#cccccc" };
+    var legendItems=labels.map(function(lbl){
+      return {label:String(lbl),color:valueToColor.get(lbl)||"#cccccc"};
     });
-
-    legendControl.update(legendItems, activeMapField);
+    legendControl.update(legendItems,activeMapField);
   }
 
   function classifyValueForMap(v){
-    if (v === null || v === undefined || v === "") return "No data";
+    if(v===null||v===undefined||v==="") return "No data";
 
-    // numeric bins?
-    var n = (typeof v === "number") ? v : Number(v);
+    var n=(typeof v==="number")?v:Number(v);
+    if(numericBins && numericBins.edges && numericBins.labels && !isNaN(n) && isFinite(n)){
+      var edges=numericBins.edges,labels=numericBins.labels;
+      var min=edges[0],max=edges[edges.length-1];
+      if(n<=min) return labels[0];
+      if(n>=max) return labels[labels.length-1];
 
-    if (numericBins && numericBins.edges && numericBins.labels && !isNaN(n) && isFinite(n)) {
-      var edges = numericBins.edges;
-      var labels = numericBins.labels;
-
-      var min = edges[0];
-      var max = edges[edges.length - 1];
-      if (n <= min) return labels[0];
-      if (n >= max) return labels[labels.length - 1];
-
-      var binCount = labels.length;
-      var step = (max - min) / binCount;
-      var idx = Math.min(binCount-1, Math.floor((n - min) / step));
-      if (idx < 0) idx = 0;
+      var binCount=labels.length;
+      var step=(max-min)/binCount;
+      var idx=Math.min(binCount-1,Math.floor((n-min)/step));
+      if(idx<0) idx=0;
       return labels[idx];
     }
 
-    // categorical
-    var s = String(v).trim();
-    if (!s) return "No data";
-    // إذا لم يكن ضمن TopN، سيُلوّن لاحقاً كـOther إن وجد
+    var s=String(v).trim();
+    if(!s) return "No data";
     return s;
   }
 
-  function hslColor(i, total){
-    var hue = Math.round((i * 360) / Math.max(1, total));
-    return "hsl(" + hue + ", 65%, 60%)";
+  function hslColor(i,total){
+    var hue=Math.round((i*360)/Math.max(1,total));
+    return "hsl("+hue+",65%,60%)";
   }
 
-  // ===============================
-  // 11) UTIL
-  // ===============================
+  function addPolygonLabels(){
+    if(!labelsLayer||!geojsonData) return;
+    labelsLayer.clearLayers();
+
+    var features=geojsonData.features||[];
+    features.forEach(function(feature){
+      var props=feature.properties||{};
+      var labelText=props.Mahalla_Vi||props.mahalla_vi||"";
+      if(!labelText) return;
+
+      try{
+        var layer=L.geoJSON(feature);
+        var center=layer.getBounds().getCenter();
+        var label=L.marker(center,{
+          icon:L.divIcon({className:'polygon-label',html:escapeHTML(String(labelText)),iconSize:null})
+        });
+        labelsLayer.addLayer(label);
+      }catch(e){
+        console.warn("Could not add label:",e);
+      }
+    });
+  }
+
   function escapeHTML(str){
-    return String(str == null ? "" : str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String(str==null?"":str)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
   }
 </script>
 </body>
