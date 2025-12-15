@@ -14,6 +14,12 @@
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/highcharts-3d.js"></script>
 
+  <!-- ✅ Turf.js لتوليد نقاط داخل المضلعات -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <!-- ✅ Font Awesome لأيقونة الشخص -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
   <style>
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
     #app{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
@@ -24,6 +30,9 @@
       --label-font: 8px;
       --label-py: 1px;
       --label-px: 4px;
+
+      /* ✅ متغير حجم أيقونة الشخص (Dot Density) */
+      --dot-size: 14px;
     }
 
     #side-panel{
@@ -76,13 +85,13 @@
 
     .section-title{font-size:.95rem;font-weight:800;margin:10px 0 6px;color:#333}
     #info-text{font-size:.85rem;color:#555;background:#fff;padding:10px;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;margin-bottom:10px;line-height:1.6}
-    .box{background:#fff;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;padding:10px;margin-bottom:10px}
+    .box{background:#fff;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;padding:10px;margin-bottom:10px;position:relative}
     #attributes-table{width:100%;border-collapse:collapse;font-size:.85rem;overflow:hidden}
     #attributes-table th,#attributes-table td{padding:4px 8px;border-bottom:1px solid #eee;vertical-align:top}
     #attributes-table th{background:#f1f3f8;text-align:left;width:35%}
     #attributes-table tr:last-child td{border-bottom:none}
 
-    #field-search,#topn-input,#mapfield-select{
+    #field-search,#topn-input,#mapfield-select,#render-mode{
       width:100%;padding:8px 10px;border:1px solid #e1e4ea;border-radius:10px;font-size:.92rem;outline:none;background:#fff
     }
     #fields-list{margin-top:10px;max-height:220px;overflow:auto;border:1px solid #e1e4ea;border-radius:10px;padding:8px}
@@ -93,8 +102,19 @@
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .hint{font-size:.78rem;color:#666;margin-top:6px;line-height:1.4}
     .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-    button{border:1px solid #d7dbe6;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:.9rem}
+    button{border:1px solid #d7dbe6;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:.9rem;transition:all .2s ease}
     button:hover{background:#f2f4fb}
+    button:disabled{opacity:.5;cursor:not-allowed}
+
+    .layer-selector{margin-bottom:10px}
+    .layer-btn{flex:1;padding:10px;border:2px solid #e1e4ea;background:#fff;border-radius:10px;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s ease}
+    .layer-btn:hover{background:#f6f8ff;border-color:#2457c6}
+    .layer-btn.active{background:#2457c6;color:#fff;border-color:#2457c6}
+    .layer-btn:disabled{opacity:.5;cursor:not-allowed}
+
+    .loading-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;z-index:2000;border-radius:10px}
+    .spinner{border:3px solid #f3f3f3;border-top:3px solid #2457c6;border-radius:50%;width:40px;height:40px;animation:spin .8s linear infinite}
+    @keyframes spin{0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)}}
 
     #charts-area .chart-box{background:#fff;border-radius:10px;box-shadow:0 0 0 1px #e1e4ea;padding:10px;margin-top:10px}
     .chart-title{font-size:.92rem;font-weight:800;margin:0 0 8px;color:#222}
@@ -118,18 +138,31 @@
       background:rgba(255,255,255,.80);
       border:1px solid rgba(31,120,180,.85);
       border-radius:6px;
-
       font-size: var(--label-font);
       padding: var(--label-py) var(--label-px);
-
       font-weight:600;
       color:#1f78b4;
       white-space:nowrap;
       pointer-events:none;
       box-shadow:0 1px 4px rgba(0,0,0,.10);
-
       transform: translateZ(0) scale(var(--label-scale));
       transform-origin: center;
+    }
+
+    /* ✅ أيقونة الشخص للنقاط (Dot Density) */
+    .person-dot{
+      font-size: var(--dot-size);
+      color:#2457c6;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+      line-height:1;
+    }
+    .person-dot-wrap{
+      width: calc(var(--dot-size) + 2px);
+      height: calc(var(--dot-size) + 2px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
     }
 
     @media (max-width:900px){
@@ -169,18 +202,39 @@
     <div id="panel-header">
       <h2>KRG GeoJSON Viewer
         <span style="font-size:.75rem;color:#2457c6;background:#e6f0ff;padding:2px 8px;border-radius:999px">
-          Leaflet + 3D Pie
+          Multi-Layer + 3D Charts
         </span>
       </h2>
-      <small>اختر حقولاً لعرض توزيعها، وعيّن أي حقل لتلوين الخريطة + Legend + Popup.</small>
+      <small>اختر الطبقة، ثم حدد الحقول لعرض توزيعها وتلوين الخريطة أو Dot Density.</small>
     </div>
 
     <div id="panel-content">
       <div id="info-text">
-        1) اختر حقلاً/حقولاً من القائمة.<br/>
-        2) حدّد <b>Top N</b> لعدد الشرائح.<br/>
-        3) اختر حقل تلوين الخريطة واضغط تطبيق.<br/>
-        4) انقر مضلع ➜ Popup + جدول الصفات.
+        1) اختر طبقة الخريطة (دهوك أو هولير).<br/>
+        2) اختر حقلاً/حقولاً من القائمة.<br/>
+        3) حدّد <b>Top N</b> لعدد الشرائح.<br/>
+        4) اختر حقل تلوين الخريطة واضغط تطبيق.<br/>
+        5) ✅ يمكنك اختيار <b>Dot Density</b>: كل نقطة = 1.
+      </div>
+
+      <div class="box">
+        <div class="section-title">اختيار طبقة الخريطة</div>
+        <div class="layer-selector" style="display:flex;gap:8px">
+          <button class="layer-btn active" data-layer="duhok">
+            <div style="font-size:.95rem">📍 دهوك</div>
+            <div style="font-size:.75rem;color:inherit;opacity:.8">Duhok Section</div>
+          </button>
+          <button class="layer-btn" data-layer="hawler">
+            <div style="font-size:.95rem">📍 هولير</div>
+            <div style="font-size:.75rem;color:inherit;opacity:.8">Hawler</div>
+          </button>
+        </div>
+        <div id="loading-indicator" class="loading-overlay" style="display:none">
+          <div style="text-align:center">
+            <div class="spinner"></div>
+            <div style="margin-top:10px;color:#666;font-size:.9rem;font-weight:600">جاري التحميل...</div>
+          </div>
+        </div>
       </div>
 
       <div class="box">
@@ -189,6 +243,24 @@
         <div id="fields-list"></div>
 
         <div class="section-title" style="margin-top:12px">تحكم العرض</div>
+
+        <!-- ✅ جديد: تحكم التسميات + وضع الترميز -->
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+          <label style="display:flex;gap:8px;align-items:center;font-size:.9rem">
+            <input type="checkbox" id="toggle-labels" checked />
+            <span style="font-weight:700">إظهار تسميات المضلعات</span>
+          </label>
+
+          <div>
+            <div style="font-size:.9rem;font-weight:800;margin-bottom:6px">نوع الترميز</div>
+            <select id="render-mode">
+              <option value="choropleth">تلوين (Choropleth)</option>
+              <option value="dot">Point Density (كل نقطة = 1)</option>
+            </select>
+            <div class="hint">في وضع Point Density سيتم استخدام <b>حقل التلوين</b> لإنتاج النقاط داخل كل مضلع (الحقول الرقمية فقط).</div>
+          </div>
+        </div>
+
         <div class="grid-2">
           <div>
             <input id="topn-input" type="number" min="3" max="30" step="1" value="10"/>
@@ -201,9 +273,9 @@
         </div>
 
         <div class="btn-row">
-          <button id="btn-apply">تطبيق</button>
-          <button id="btn-clear">إلغاء التحديد</button>
-          <button id="btn-zoom">زوّم على الطبقة</button>
+          <button id="btn-apply">✓ تطبيق</button>
+          <button id="btn-clear">✕ إلغاء التحديد</button>
+          <button id="btn-zoom">🔍 زوّم على الطبقة</button>
         </div>
       </div>
 
@@ -215,7 +287,7 @@
       </div>
 
       <div id="charts-area">
-        <div class="section-title">3D Pie — توزيع القيم</div>
+        <div class="section-title">3D Pie Charts — توزيع القيم</div>
         <div id="charts-container"></div>
       </div>
     </div>
@@ -223,22 +295,24 @@
 </div>
 
 <script>
-  var geojsonUrl="https://raw.githubusercontent.com/sdmnet/KRG_layer/refs/heads/main/duhok_section.geojson";
+  var geojsonLayers = {
+    duhok: "https://raw.githubusercontent.com/sdmnet/KRG_layer/refs/heads/main/duhok_section.geojson",
+    hawler: "https://raw.githubusercontent.com/sdmnet/KRG_layer/refs/heads/main/hawler.geojson"
+  };
+
+  var currentLayer = "duhok";
 
   var map=L.map("map").setView([36.5,44],7);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
     maxZoom:19,attribution:"&copy; OpenStreetMap"
   }).addTo(map);
 
-  /* ✅ Auto-scale للتسميات (أصغر حجم مع بقاء التكيف) */
+  /* ✅ Auto-scale للتسميات */
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
   function updateLabelScale(){
     var z = map.getZoom();
-
-    // ✅ أصغر جداً مع بقاء التدرّج
-    var font  = clamp(5 + (z - 7) * 0.30, 5, 8);      // px
+    var font  = clamp(5 + (z - 7) * 0.30, 5, 8);
     var scale = clamp(0.55 + (z - 7) * 0.04, 0.55, 0.90);
-
     var py = clamp(0.1 + (z - 7) * 0.04, 0.1, 0.8);
     var px = clamp(2.0 + (z - 7) * 0.12, 2.0, 4.5);
 
@@ -248,9 +322,21 @@
     el.style.setProperty('--label-py',    py.toFixed(1) + 'px');
     el.style.setProperty('--label-px',    px.toFixed(1) + 'px');
   }
+
+  /* ✅ Auto-scale لأيقونة الشخص (Dot Density) */
+  function updateDotIconSize(){
+    var z = map.getZoom();
+    var vw = window.innerWidth || 1200;
+    var wFactor = clamp(vw / 1200, 0.75, 1.15);
+    var size = clamp((10 + (z - 7) * 1.8) * wFactor, 10, 22);
+    map.getContainer().style.setProperty('--dot-size', size.toFixed(1) + 'px');
+  }
+
   updateLabelScale();
-  map.on('zoomend', updateLabelScale);
-  map.on('resize', updateLabelScale);
+  updateDotIconSize();
+  map.on('zoomend', function(){ updateLabelScale(); updateDotIconSize(); });
+  map.on('resize', function(){ updateLabelScale(); updateDotIconSize(); window.setTimeout(updateDotIconSize, 50); });
+  window.addEventListener('resize', updateDotIconSize);
 
   var legendControl=L.control({position:"bottomright"});
   legendControl.onAdd=function(){
@@ -262,8 +348,16 @@
   };
   legendControl.update=function(items,title){
     if(!this._div)return;
+
+    if(renderMode === 'dot' && activeMapField){
+      this._div.innerHTML =
+        '<div class="legend-title">Dot Density — '+escapeHTML(activeMapField)+'</div>' +
+        '<div class="legend-sub">كل <b>أيقونة شخص</b> = 1 (القيمة داخل كل مضلع).</div>';
+      return;
+    }
+
     if(!items||!items.length){
-      this._div.innerHTML='<div class="legend-title">Legend</div><div class="legend-sub">اختر حقلاً لتلوين الخريطة.</div>';
+      this._div.innerHTML='<div class="legend-title">Legend</div><div class="legend-sub">اختر حقلاً لتلوين الخريطة أو فعّل Dot Density.</div>';
       return;
     }
     var h='<div class="legend-title">Legend — '+escapeHTML(title||"")+'</div><div class="legend-sub">الألوان تمثل فئات الحقل.</div>';
@@ -279,40 +373,148 @@
   var topN=10,binsCount=5,activeMapField="";
   var valueToColor=new Map(),numericBins=null;
 
-  fetch(geojsonUrl,{cache:"no-store"})
-    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-    .then(function(data){
-      geojsonData=data;
+  /* ✅ جديد */
+  var showLabels = true;
+  var renderMode = 'choropleth'; // choropleth | dot
+  var dotLayer = L.layerGroup().addTo(map);
 
-      var s=new Set();
-      (data.features||[]).forEach(function(f){
-        var p=f.properties||{};
-        Object.keys(p).forEach(function(k){ s.add(k); });
-      });
-      allFields=Array.from(s).sort(function(a,b){ return a.localeCompare(b); });
+  // تهيئة الطبقة الأولى
+  loadLayer(currentLayer);
 
-      renderFieldsList(allFields);
-
-      geojsonLayer=L.geoJSON(data,{style:baseStyle,onEachFeature:onEachFeature}).addTo(map);
-
-      labelsLayer=L.layerGroup().addTo(map);
-      addPolygonLabels();
-
-      updateLabelScale();
-
-      try{ map.fitBounds(geojsonLayer.getBounds()); }catch(e){}
-      setChartsPlaceholder();
-    })
-    .catch(function(error){
-      console.error("Error:",error);
-      document.getElementById("attributes-body").innerHTML=
-        "<tr><td colspan='2' style='color:red'>Error: "+escapeHTML(error.message)+"</td></tr>";
-      document.getElementById("fields-list").innerHTML=
-        "<div style='color:red;padding:6px'>فشل تحميل الملف.</div>";
-      setChartsPlaceholder("فشل تحميل البيانات.");
+  // تبديل الطبقات
+  document.querySelectorAll('.layer-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var layerName = this.getAttribute('data-layer');
+      if(layerName === currentLayer) return;
+      document.querySelectorAll('.layer-btn').forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      currentLayer = layerName;
+      loadLayer(currentLayer);
     });
+  });
+
+  // ✅ Toggle labels
+  document.getElementById('toggle-labels').addEventListener('change', function(){
+    showLabels = !!this.checked;
+    if(!labelsLayer) return;
+    if(showLabels) addPolygonLabels();
+    else labelsLayer.clearLayers();
+  });
+
+  // ✅ Render mode
+  document.getElementById('render-mode').addEventListener('change', function(){
+    renderMode = this.value;
+    applyRenderMode();
+  });
+
+  function applyRenderMode(){
+    // تحديث ستايل الخريطة
+    if(geojsonLayer) geojsonLayer.setStyle(baseStyle);
+    if(selectedLayer) selectedLayer.setStyle(highlightStyle());
+
+    // تحديث الرموز
+    if(renderMode === 'dot'){
+      generateDotDensity();
+    }else{
+      clearDotDensity();
+    }
+
+    // تحديث الـ Legend
+    recolorMapByActiveField(); // سيحدّث الـ Legend أيضاً حسب وضع العرض
+  }
+
+  function loadLayer(layerName) {
+    showLoading();
+    disableButtons(true);
+
+    if(geojsonLayer) { map.removeLayer(geojsonLayer); geojsonLayer = null; }
+    if(labelsLayer) { labelsLayer.clearLayers(); }
+    else { labelsLayer = L.layerGroup().addTo(map); }
+
+    clearDotDensity();
+
+    selectedLayer = null;
+    geojsonData = null;
+    allFields = [];
+    selectedFields = [];
+    activeMapField = "";
+    valueToColor.clear();
+    numericBins = null;
+
+    document.getElementById("attributes-body").innerHTML =
+      "<tr><td colspan='2'>لم يتم اختيار أي مضلع.</td></tr>";
+    document.getElementById("fields-list").innerHTML = "";
+    document.getElementById("field-search").value = "";
+    setChartsPlaceholder();
+    legendControl.update(null, null);
+
+    var geojsonUrl = geojsonLayers[layerName];
+
+    fetch(geojsonUrl, {cache: "no-store"})
+      .then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data){
+        geojsonData = data;
+
+        var s = new Set();
+        (data.features || []).forEach(function(f){
+          var p = f.properties || {};
+          Object.keys(p).forEach(function(k){ s.add(k); });
+        });
+        allFields = Array.from(s).sort(function(a,b){ return a.localeCompare(b); });
+
+        renderFieldsList(allFields);
+
+        geojsonLayer = L.geoJSON(data, {
+          style: baseStyle,
+          onEachFeature: onEachFeature
+        }).addTo(map);
+
+        if(showLabels) addPolygonLabels();
+        updateLabelScale();
+        updateDotIconSize();
+
+        try{ map.fitBounds(geojsonLayer.getBounds()); } catch(e) {}
+
+        setChartsPlaceholder();
+        hideLoading();
+        disableButtons(false);
+      })
+      .catch(function(error){
+        console.error("Error:", error);
+        document.getElementById("attributes-body").innerHTML =
+          "<tr><td colspan='2' style='color:red'>خطأ: " + escapeHTML(error.message) + "</td></tr>";
+        document.getElementById("fields-list").innerHTML =
+          "<div style='color:red;padding:6px'>فشل تحميل الملف. يرجى المحاولة مرة أخرى.</div>";
+        setChartsPlaceholder("فشل تحميل البيانات.");
+        hideLoading();
+        disableButtons(false);
+      });
+  }
+
+  function showLoading() {
+    document.getElementById('loading-indicator').style.display = 'flex';
+  }
+
+  function hideLoading() {
+    document.getElementById('loading-indicator').style.display = 'none';
+  }
+
+  function disableButtons(disabled) {
+    document.querySelectorAll('.layer-btn').forEach(function(btn){ btn.disabled = disabled; });
+    document.getElementById('btn-apply').disabled = disabled;
+    document.getElementById('btn-clear').disabled = disabled;
+    document.getElementById('btn-zoom').disabled = disabled;
+  }
 
   function baseStyle(feature){
+    // ✅ إذا وضع Dot Density: خلي المضلعات خفيفة (حدود فقط تقريباً)
+    if(renderMode === 'dot'){
+      return {color:"#1f78b4",weight:1.2,fillColor:"#ffffff",fillOpacity:.08};
+    }
+
     if(!activeMapField){
       return {color:"#1f78b4",weight:1.5,fillColor:"#a6cee3",fillOpacity:.55};
     }
@@ -354,7 +556,7 @@
 
   function openSelectedFieldsPopup(layer,props,latlng){
     var keys=selectedFields.slice(0,20);
-    var h='<div style="min-width:220px;font-size:13px;line-height:1.5"><div style="font-weight:800;margin-bottom:6px">Selected fields</div>';
+    var h='<div style="min-width:220px;font-size:13px;line-height:1.5"><div style="font-weight:800;margin-bottom:6px;color:#2457c6">معلومات المضلع</div>';
 
     if(!keys.length){
       h+='<div style="color:#666">لا توجد حقول محددة.</div>';
@@ -370,7 +572,10 @@
 
     if(activeMapField){
       var av=props?props[activeMapField]:"";
-      h+='<div style="margin-top:8px;color:#444"><b>Map field:</b> '+escapeHTML(activeMapField)+' = '+escapeHTML(av==null?"":String(av))+'</div>';
+      h+='<div style="margin-top:8px;padding:6px;background:#e6f0ff;border-radius:6px;color:#2457c6"><b>حقل التلوين:</b> '+escapeHTML(activeMapField)+' = '+escapeHTML(av==null?"":String(av))+'</div>';
+      if(renderMode==='dot'){
+        h+='<div style="margin-top:6px;color:#666;font-size:12px">Dot Density: كل أيقونة = 1</div>';
+      }
     }
 
     h+='</div>';
@@ -461,6 +666,9 @@
     buildChartsForSelectedFields(selectedFields);
     recolorMapByActiveField();
 
+    // ✅ تطبيق وضع العرض
+    applyRenderMode();
+
     if(selectedLayer) selectedLayer.setStyle(highlightStyle());
   });
 
@@ -469,6 +677,8 @@
     activeMapField="";
     valueToColor.clear();
     numericBins=null;
+
+    clearDotDensity();
 
     var list=document.getElementById("fields-list");
     list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ cb.checked=false; });
@@ -486,7 +696,7 @@
     if(geojsonLayer){ try{ map.fitBounds(geojsonLayer.getBounds()); }catch(e){} }
   });
 
-  /* ✅ زر طي/فتح البانل + تمدد الخريطة بالكامل + invalidateSize */
+  /* ✅ زر طي/فتح البانل */
   document.getElementById("toggle-panel").addEventListener("click",function(){
     var panel=document.getElementById("side-panel");
     var app=document.getElementById("app");
@@ -494,7 +704,7 @@
     panel.classList.toggle("collapsed");
     app.classList.toggle("panel-collapsed");
 
-    setTimeout(function(){ map.invalidateSize(); updateLabelScale(); }, 260);
+    setTimeout(function(){ map.invalidateSize(); updateLabelScale(); updateDotIconSize(); }, 260);
   });
 
   function syncMapFieldSelect(keepSelectionIfPossible){
@@ -531,7 +741,7 @@
 
       var title=document.createElement("div");
       title.className="chart-title";
-      title.textContent="Field: "+field;
+      title.textContent="📊 Field: "+field;
 
       var hint=document.createElement("div");
       hint.className="chart-hint";
@@ -554,7 +764,7 @@
     Highcharts.chart(divId,{
       chart:{type:'pie',options3d:{enabled:true,alpha:45,beta:0},backgroundColor:'transparent'},
       title:{text:null},
-      tooltip:{pointFormat:'<b>{point.y}</b> polygons ({point.percentage:.1f}%)'},
+      tooltip:{pointFormat:'<b>{point.y}</b> مضلع ({point.percentage:.1f}%)'},
       plotOptions:{pie:{allowPointSelect:true,cursor:'pointer',depth:35,dataLabels:{enabled:true,format:'{point.name}: {point.y}'}}},
       series:[{name:fieldName,data:seriesData}],
       credits:{enabled:false}
@@ -657,6 +867,12 @@
 
     geojsonLayer.setStyle(baseStyle);
 
+    // ✅ إذا Dot Density: الـ legend سيكون خاص بالنقاط
+    if(renderMode === 'dot'){
+      legendControl.update([], activeMapField);
+      return;
+    }
+
     var legendItems=labels.map(function(lbl){
       return {label:String(lbl),color:valueToColor.get(lbl)||"#cccccc"};
     });
@@ -691,13 +907,14 @@
   }
 
   function addPolygonLabels(){
-    if(!labelsLayer||!geojsonData) return;
+    if(!labelsLayer || !geojsonData) return;
     labelsLayer.clearLayers();
+    if(!showLabels) return;
 
     var features=geojsonData.features||[];
     features.forEach(function(feature){
       var props=feature.properties||{};
-      var labelText=props.Mahalla_Vi||props.mahalla_vi||"";
+      var labelText=props.Mahalla_Vi||props.mahalla_vi||props.name||props.NAME||"";
       if(!labelText) return;
 
       try{
@@ -711,6 +928,107 @@
         console.warn("Could not add label:",e);
       }
     });
+  }
+
+  /* =========================
+     ✅ Dot Density (كل نقطة = 1)
+     ========================= */
+  function clearDotDensity(){
+    dotLayer.clearLayers();
+  }
+
+  function hashString(str){
+    // hash بسيط لتثبيت توزيع النقاط
+    var h = 2166136261;
+    for (var i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0);
+  }
+
+  function makeRNG(seed){
+    var s = seed >>> 0;
+    return function(){
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+
+  function getNumericValue(v){
+    if(v===null || v===undefined || v==="") return null;
+    var n = (typeof v === 'number') ? v : Number(v);
+    if(!isFinite(n) || isNaN(n)) return null;
+    // ✅ كل نقطة = 1، لذلك نستخدم عدد صحيح
+    return Math.max(0, Math.round(n));
+  }
+
+  function personIcon(){
+    // لاحظ: حجم الأيقونة يتم من CSS variable --dot-size
+    return L.divIcon({
+      className: '',
+      html: '<div class="person-dot-wrap"><i class="fa-solid fa-user person-dot"></i></div>',
+      iconSize: null
+    });
+  }
+
+  function generateDotDensity(){
+    clearDotDensity();
+    if(!geojsonData || !activeMapField) return;
+
+    // حماية أداء (يمكنك رفعها إذا كانت بياناتك صغيرة)
+    var MAX_TOTAL_DOTS = 25000;
+    var MAX_DOTS_PER_POLY = 4000;
+
+    var features = geojsonData.features || [];
+    var total = 0;
+
+    for(var i=0;i<features.length;i++){
+      if(total >= MAX_TOTAL_DOTS) break;
+
+      var f = features[i];
+      var props = f.properties || {};
+      var rawVal = props[activeMapField];
+      var count = getNumericValue(rawVal);
+      if(count === null || count <= 0) continue;
+
+      count = Math.min(count, MAX_DOTS_PER_POLY);
+      if(total + count > MAX_TOTAL_DOTS) count = MAX_TOTAL_DOTS - total;
+      if(count <= 0) break;
+
+      try{
+        var bbox = turf.bbox(f); // [minX,minY,maxX,maxY]
+        var rng = makeRNG(hashString(String(activeMapField)+"|"+String(i)));
+
+        var points = [];
+        var attempts = 0;
+        var maxAttempts = Math.max(200, count * 25); // رفض-قبول داخل المضلع
+
+        while(points.length < count && attempts < maxAttempts){
+          attempts++;
+          var x = bbox[0] + (bbox[2]-bbox[0]) * rng();
+          var y = bbox[1] + (bbox[3]-bbox[1]) * rng();
+          var pt = turf.point([x,y]);
+          if(turf.booleanPointInPolygon(pt, f)){
+            points.push(pt);
+          }
+        }
+
+        // رسم النقاط
+        for(var p=0;p<points.length;p++){
+          var c = points[p].geometry.coordinates; // [lng,lat]
+          var m = L.marker([c[1], c[0]], { icon: personIcon(), interactive:false });
+          dotLayer.addLayer(m);
+        }
+
+        total += points.length;
+      }catch(e){
+        console.warn("DotDensity error on feature:", i, e);
+      }
+    }
+
+    // تحديث Legend
+    legendControl.update([], activeMapField);
   }
 
   function escapeHTML(str){
